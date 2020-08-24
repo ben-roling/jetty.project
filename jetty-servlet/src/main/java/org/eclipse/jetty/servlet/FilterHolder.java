@@ -180,7 +180,7 @@ public class FilterHolder extends Holder<Filter>
         ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
         if (contextHandler != null)
         {
-            for (FilterHolder.WrapperFunction wrapperFunction : getServletHandler().getServletContextHandler().getBeans(FilterHolder.WrapperFunction.class))
+            for (FilterHolder.WrapperFunction wrapperFunction : contextHandler.getBeans(FilterHolder.WrapperFunction.class))
             {
                 ret = wrapperFunction.wrapFilter(ret);
             }
