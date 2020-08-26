@@ -19,7 +19,9 @@
 package org.eclipse.jetty.metrics;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import javax.servlet.DispatcherType;
 
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
@@ -70,6 +72,8 @@ public class ServletContextHandlerMetricsTest
         contextHandler.addBean(metricsHandler);
         contextHandler.addServlet(HelloServlet.class, "/hello");
 
+        metricsHandler.addToAllConnectors(server);
+        metricsHandler.addToContext(contextHandler);
         server.setHandler(contextHandler);
         server.start();
 
@@ -77,10 +81,46 @@ public class ServletContextHandlerMetricsTest
         assertThat("Response.status", response.getStatus(), is(HttpStatus.OK_200));
 
         List<String> expectedEvents = new ArrayList<>();
+        expectedEvents.add("onServletContextStarting()");
+        expectedEvents.add("onServletContextReady()");
         expectedEvents.add("onServletStarting()");
         expectedEvents.add("onServletReady()");
         expectedEvents.add("onServletEnter()");
         expectedEvents.add("onServletExit()");
+
+        assertThat("Metrics Events Count", captureListener.events.size(), is(expectedEvents.size()));
+    }
+
+    @Test
+    public void testSimpleFilterAndServlet() throws Exception
+    {
+        ServletMetricsCaptureListener captureListener = new ServletMetricsCaptureListener();
+        MetricsHandler metricsHandler = new MetricsHandler(captureListener);
+
+        ServletContextHandler contextHandler = new ServletContextHandler();
+        contextHandler.setContextPath("/");
+        contextHandler.addServlet(HelloServlet.class, "/hello");
+        contextHandler.addFilter(FooFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
+
+        metricsHandler.addToAllConnectors(server);
+        metricsHandler.addToContext(contextHandler);
+        server.setHandler(contextHandler);
+        server.start();
+
+        ContentResponse response = client.GET(server.getURI().resolve("/hello"));
+        assertThat("Response.status", response.getStatus(), is(HttpStatus.OK_200));
+
+        List<String> expectedEvents = new ArrayList<>();
+        expectedEvents.add("onServletContextStarting()");
+        expectedEvents.add("onFilterStarting()");
+        expectedEvents.add("onFilterReady()");
+        expectedEvents.add("onServletContextReady()");
+        expectedEvents.add("onServletStarting()");
+        expectedEvents.add("onServletReady()");
+        expectedEvents.add("onFilterEnter()");
+        expectedEvents.add("onServletEnter()");
+        expectedEvents.add("onServletExit()");
+        expectedEvents.add("onFilterExit()");
 
         assertThat("Metrics Events Count", captureListener.events.size(), is(expectedEvents.size()));
     }

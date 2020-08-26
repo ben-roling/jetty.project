@@ -66,8 +66,7 @@ public interface WebAppMetricsListener extends ServletMetricsListener
      * </p>
      *
      * @param context the specific context that was started / initialized
-     * @param duration the duration for this context's startup
      * @see #onServletContextReady(ServletContext)
      */
-    void onWebAppReady(WebAppContext context, Duration duration);
+    void onWebAppReady(WebAppContext context);
 }
