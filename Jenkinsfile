@@ -122,18 +122,24 @@ def slackNotif() {
  * @return the Jenkinsfile step representing a maven build
  */
 def mavenBuild(jdk, cmdline, mvnName, junitPublishDisabled) {
-  def localRepo = ".repository"
-  def mavenOpts = '-Xms1g -Xmx4g -Djava.awt.headless=true'
-
-  withMaven(
-    maven: mvnName,
-    jdk: "$jdk",
-    publisherStrategy: 'EXPLICIT',
-    options: [junitPublisher(disabled: junitPublishDisabled), mavenLinkerPublisher(disabled: false), pipelineGraphPublisher(disabled: false)],
-    mavenOpts: mavenOpts,
-    mavenLocalRepo: localRepo) {
-    // Some common Maven command line + provided command line
-    sh "mvn -Premote-session-tests -Pci -V -B -e -fae -Djetty.testtracker.log=true $cmdline -Dunix.socket.tmp=" + env.JENKINS_HOME
+  script {
+    try
+    {
+      withMaven( maven: mvnName,
+                 jdk: "$jdk",
+                 publisherStrategy: 'EXPLICIT',
+                 options: [junitPublisher( disabled: junitPublishDisabled ), mavenLinkerPublisher( disabled: false ), pipelineGraphPublisher( disabled: false )],
+                 mavenOpts: '-Xms1g -Xmx4g -Djava.awt.headless=true',
+                 mavenLocalRepo: ".repository" ) {
+        // Some common Maven command line + provided command line
+        sh "mvn -Premote-session-tests -Pci -V -B -e -fae -Djetty.testtracker.log=true $cmdline -Dunix.socket.tmp=" +
+                   env.JENKINS_HOME
+      }
+    }
+    finally
+    {
+      archiveArtifacts artifacts: "**/apache-jstl/target/**",allowEmptyArchive: true
+    }
   }
 }
 
