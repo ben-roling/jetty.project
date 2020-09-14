@@ -44,15 +44,15 @@
     <jpms-module-name>${bundle-symbolic-name}</jpms-module-name>
 
     <!-- some maven plugins versions -->
-    <maven.surefire.version>3.0.0-M4</maven.surefire.version>
+    <maven.surefire.version>3.0.0-M5</maven.surefire.version>
     <maven.compiler.plugin.version>3.8.1</maven.compiler.plugin.version>
-    <maven.dependency.plugin.version>3.1.1</maven.dependency.plugin.version>
-    <maven.resources.plugin.version>3.1.0</maven.resources.plugin.version>
-    <maven.source.plugin.version>3.0.1</maven.source.plugin.version>
-    <maven.war.plugin.version>3.3.0</maven.war.plugin.version>
+    <maven.dependency.plugin.version>3.1.2</maven.dependency.plugin.version>
+    <maven.resources.plugin.version>3.2.0</maven.resources.plugin.version>
+    <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
+    <maven.war.plugin.version>3.3.1</maven.war.plugin.version>
     <maven.plugin-tools.version>3.5.2</maven.plugin-tools.version>
-    <maven.install.plugin.version>2.5.2</maven.install.plugin.version>
-    <maven.deploy.plugin.version>2.8.2</maven.deploy.plugin.version>
+    <maven.install.plugin.version>3.0.0-M1</maven.install.plugin.version>
+    <maven.deploy.plugin.version>3.0.0-M1</maven.deploy.plugin.version>
 
     <!-- testing -->
     <it.debug>false</it.debug>
@@ -137,9 +137,6 @@
     <module>jetty-home</module>
     <module>jetty-bom</module>
     <module>jetty-documentation</module>
-    <!-- modules that need fixed and added back, or simply dropped and not maintained -->
-    <!-- <module>jetty-rhttp</module> -->
-    <!-- <module>jetty-overlay-deployer</module> -->
   </modules>
 
   <build>
@@ -667,7 +664,7 @@
           <configuration>
             <rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</rerunFailingTestsCount>
             <forkedProcessTimeoutInSeconds>3600</forkedProcessTimeoutInSeconds>
-            <argLine>@{argLine} -Dfile.encoding=UTF-8 -Duser.language=en -Duser.region=US -showversion -Xmx2g -Xms2g -XX:+PrintGCDetails</argLine>
+            <argLine>@{argLine} -Dfile.encoding=UTF-8 -Duser.language=en -Duser.region=US -showversion -Xmx6g -Xms2g -XX:+PrintGCDetails</argLine>
             <failIfNoTests>false</failIfNoTests>
             <forkCount>1</forkCount>
             <reuseForks>true</reuseForks> <!-- to work around crash at https://github.com/junit-team/junit5/issues/801 -->
@@ -943,9 +940,9 @@
           </configuration>
         </plugin>
         <plugin>
-          <groupId>com.github.madgnome</groupId>
+          <groupId>org.mortbay.jetty</groupId>
           <artifactId>h2spec-maven-plugin</artifactId>
-          <version>0.6</version>
+          <version>1.0.0</version>
         </plugin>
       </plugins>
     </pluginManagement>

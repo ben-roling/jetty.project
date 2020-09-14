@@ -30,7 +30,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -603,7 +602,8 @@ public class HttpClient extends ContainerLifeCycle
             @Override
             public void succeeded(List<InetSocketAddress> socketAddresses)
             {
-                Map<String, Object> context = new HashMap<>();
+                // Multiple threads may access the map, especially with DEBUG logging enabled.
+                Map<String, Object> context = new ConcurrentHashMap<>();
                 context.put(ClientConnectionFactory.CONNECTOR_CONTEXT_KEY, HttpClient.this);
                 context.put(HttpClientTransport.HTTP_DESTINATION_CONTEXT_KEY, destination);
                 connect(socketAddresses, 0, context);
@@ -690,7 +690,7 @@ public class HttpClient extends ContainerLifeCycle
     }
 
     /**
-     * @return the max time, in milliseconds, a connection can take to connect to destinations
+     * @return the max time, in milliseconds, a connection can take to connect to destinations. Zero value means infinite timeout.
      */
     @ManagedAttribute("The timeout, in milliseconds, for connect() operations")
     public long getConnectTimeout()
@@ -699,7 +699,7 @@ public class HttpClient extends ContainerLifeCycle
     }
 
     /**
-     * @param connectTimeout the max time, in milliseconds, a connection can take to connect to destinations
+     * @param connectTimeout the max time, in milliseconds, a connection can take to connect to destinations. Zero value means infinite timeout.
      * @see java.net.Socket#connect(SocketAddress, int)
      */
     public void setConnectTimeout(long connectTimeout)
@@ -1155,10 +1155,14 @@ public class HttpClient extends ContainerLifeCycle
         return encodingField;
     }
 
+    /**
+     * @param host the host to normalize
+     * @return the host itself
+     * @deprecated no replacement, do not use it
+     */
+    @Deprecated
     protected String normalizeHost(String host)
     {
-        if (host != null && host.startsWith("[") && host.endsWith("]"))
-            return host.substring(1, host.length() - 1);
         return host;
     }
 
