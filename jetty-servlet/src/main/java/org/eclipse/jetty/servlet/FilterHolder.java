@@ -24,12 +24,16 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
+import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
 import javax.servlet.FilterRegistration;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 
 import org.eclipse.jetty.util.TypeUtil;
 import org.eclipse.jetty.util.component.Dumpable;
@@ -128,6 +132,7 @@ public class FilterHolder extends Holder<Filter>
                     throw ex;
                 }
             }
+            _filter = wrap(_filter);
             _config = new Config();
             if (LOG.isDebugEnabled())
                 LOG.debug("Filter.init {}", _filter);
@@ -156,13 +161,41 @@ public class FilterHolder extends Holder<Filter>
 
     @Override
     public void destroyInstance(Object o)
-        throws Exception
     {
         if (o == null)
             return;
-        Filter f = (Filter)o;
-        f.destroy();
-        getServletHandler().destroyFilter(f);
+
+        Filter filter = (Filter)o;
+        // destroy the wrapped filter, in case there is special behaviour
+        filter.destroy();
+        // need to use the unwrapped filter because lifecycle callbacks such as
+        // postconstruct and predestroy are based off the classname and the wrapper
+        // classes are unknown outside the ServletHolder
+        getServletHandler().destroyFilter(unwrap(filter));
+    }
+
+    private Filter wrap(final Filter filter)
+    {
+        Filter ret = filter;
+        ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
+        if (contextHandler != null)
+        {
+            for (FilterHolder.WrapperFunction wrapperFunction : contextHandler.getBeans(FilterHolder.WrapperFunction.class))
+            {
+                ret = wrapperFunction.wrapFilter(ret);
+            }
+        }
+        return ret;
+    }
+
+    private Filter unwrap(Filter filter)
+    {
+        Filter unwrapped = filter;
+        while (FilterHolder.WrapperFilter.class.isAssignableFrom(unwrapped.getClass()))
+        {
+            unwrapped = ((FilterHolder.WrapperFilter)unwrapped).getWrappedFilter();
+        }
+        return unwrapped;
     }
 
     public synchronized void setFilter(Filter filter)
@@ -173,6 +206,13 @@ public class FilterHolder extends Holder<Filter>
     public Filter getFilter()
     {
         return _filter;
+    }
+
+    public void doFilter(ServletRequest request, ServletResponse response,
+                         FilterChain chain)
+        throws IOException, ServletException
+    {
+        _filter.doFilter(request, response, chain);
     }
 
     @Override
@@ -264,11 +304,62 @@ public class FilterHolder extends Holder<Filter>
 
     class Config extends HolderConfig implements FilterConfig
     {
-
         @Override
         public String getFilterName()
         {
             return getName();
+        }
+    }
+
+    /**
+     * Experimental Wrapper mechanism for Filter objects.
+     * <p>
+     * Beans in ServletContextHandler or WebAppContext that implement this interface
+     * will be called to optionally wrap any newly created Filters
+     * (before their {@link Filter#init(FilterConfig)} method is called)
+     * </p>
+     */
+    public interface WrapperFunction
+    {
+        Filter wrapFilter(Filter filter);
+    }
+
+    public static class WrapperFilter implements Filter
+    {
+        private final Filter _filter;
+
+        public WrapperFilter(Filter filter)
+        {
+            _filter = Objects.requireNonNull(filter, "Filter cannot be null");
+        }
+
+        @Override
+        public void init(FilterConfig filterConfig) throws ServletException
+        {
+            _filter.init(filterConfig);
+        }
+
+        @Override
+        public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException
+        {
+            _filter.doFilter(request, response, chain);
+        }
+
+        @Override
+        public void destroy()
+        {
+            _filter.destroy();
+        }
+
+        public Filter getWrappedFilter()
+        {
+            return _filter;
+        }
+
+        @Override
+        public String toString()
+        {
+            return String.format("%s:%s", this.getClass().getSimpleName(), _filter.toString());
         }
     }
 }

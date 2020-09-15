@@ -102,6 +102,7 @@ public class ListenerHolder extends BaseHolder<EventListener>
                     throw ex;
                 }
             }
+            _listener = wrap(_listener);
             contextHandler.addEventListener(_listener);
         }
     }
@@ -117,7 +118,7 @@ public class ListenerHolder extends BaseHolder<EventListener>
                 ContextHandler contextHandler = ContextHandler.getCurrentContext().getContextHandler();
                 if (contextHandler != null)
                     contextHandler.removeEventListener(_listener);
-                getServletHandler().destroyListener(_listener);
+                getServletHandler().destroyListener(unwrap(_listener));
             }
             finally
             {
@@ -126,9 +127,67 @@ public class ListenerHolder extends BaseHolder<EventListener>
         }
     }
 
+    private EventListener wrap(final EventListener listener)
+    {
+        EventListener ret = listener;
+        ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
+        if (contextHandler != null)
+        {
+            for (ListenerHolder.WrapperFunction wrapperFunction : contextHandler.getBeans(ListenerHolder.WrapperFunction.class))
+            {
+                ret = wrapperFunction.wrapEventListener(ret);
+            }
+        }
+        return ret;
+    }
+
+    private static EventListener unwrap(EventListener listener)
+    {
+        EventListener unwrapped = listener;
+        while (ListenerHolder.WrapperEventListener.class.isAssignableFrom(unwrapped.getClass()))
+        {
+            unwrapped = ((ListenerHolder.WrapperEventListener)unwrapped).getWrappedListener();
+        }
+        return unwrapped;
+    }
+
     @Override
     public String toString()
     {
         return super.toString() + ": " + getClassName();
+    }
+
+    /**
+     * Experimental Wrapper mechanism for Servlet Listeners.
+     * <p>
+     * Beans in ServletContextHandler or WebAppContext that implement this interface
+     * will be called to optionally wrap any newly created ServletListeners before
+     * they are used for the first time.
+     * </p>
+     */
+    public interface WrapperFunction
+    {
+        EventListener wrapEventListener(EventListener listener);
+    }
+
+    public static class WrapperEventListener implements EventListener
+    {
+        final EventListener _listener;
+
+        public WrapperEventListener(EventListener listener)
+        {
+            _listener = listener;
+        }
+
+        public EventListener getWrappedListener()
+        {
+            return _listener;
+        }
+
+        @Override
+        public String toString()
+        {
+            return String.format("%s:%s", this.getClass().getSimpleName(), _listener.toString());
+        }
     }
 }

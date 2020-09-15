@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
 import java.util.concurrent.TimeUnit;
@@ -415,6 +416,26 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
         }
     }
 
+    private Servlet wrap(final Servlet servlet)
+    {
+        Servlet ret = servlet;
+        for (ServletHolder.WrapperFunction wrapperFunction : getServletHandler().getServletContextHandler().getBeans(ServletHolder.WrapperFunction.class))
+        {
+            ret = wrapperFunction.wrapServlet(ret);
+        }
+        return ret;
+    }
+
+    private Servlet unwrap(final Servlet servlet)
+    {
+        Servlet unwrapped = servlet;
+        while (unwrapped instanceof WrapperServlet)
+        {
+            unwrapped = ((WrapperServlet)unwrapped).getWrappedServlet();
+        }
+        return unwrapped;
+    }
+
     @Override
     public void doStop()
         throws Exception
@@ -444,15 +465,13 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
     {
         if (o == null)
             return;
+
         Servlet servlet = ((Servlet)o);
-        //need to use the unwrapped servlet because lifecycle callbacks such as
-        //postconstruct and predestroy are based off the classname and the wrapper
-        //classes are unknown outside the ServletHolder
-        Servlet unwrapped = servlet;
-        while (WrapperServlet.class.isAssignableFrom(unwrapped.getClass()))
-            unwrapped = ((WrapperServlet)unwrapped).getWrappedServlet();
-        getServletHandler().destroyServlet(unwrapped);
-        //destroy the wrapped servlet, in case there is special behaviour
+        // need to use the unwrapped servlet because lifecycle callbacks such as
+        // postconstruct and predestroy are based off the classname and the wrapper
+        // classes are unknown outside the ServletHolder
+        getServletHandler().destroyServlet(unwrap(servlet));
+        // destroy the wrapped servlet, in case there is special behaviour
         servlet.destroy();
     }
 
@@ -577,7 +596,6 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 _identityService = getServletHandler().getIdentityService();
                 if (_identityService != null)
                 {
-
                     _runAsToken = _identityService.newRunAsToken(_runAsRole);
                     _servlet = new RunAsServlet(_servlet, _identityService, _runAsToken);
                 }
@@ -596,6 +614,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 detectJspContainer();
 
             initMultiPart();
+            _servlet = wrap(_servlet);
 
             if (LOG.isDebugEnabled())
                 LOG.debug("Servlet.init {} for {}", _servlet, getName());
@@ -1274,13 +1293,26 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
         }
     }
 
-    private static class WrapperServlet implements Servlet
+    /**
+     * Experimental Wrapper mechanism for Servlet objects.
+     * <p>
+     * Beans in ServletContextHandler or WebAppContext that implement this interface
+     * will be called to optionally wrap any newly created Servlets
+     * (before their {@link Servlet#init(ServletConfig)} method is called)
+     * </p>
+     */
+    public interface WrapperFunction
     {
-        final Servlet _servlet;
+        Servlet wrapServlet(Servlet servlet);
+    }
+
+    public static class WrapperServlet implements Servlet
+    {
+        private final Servlet _servlet;
 
         public WrapperServlet(Servlet servlet)
         {
-            _servlet = servlet;
+            _servlet = Objects.requireNonNull(servlet, "Servlet cannot be null");
         }
 
         @Override
@@ -1346,7 +1378,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             Object oldRunAs = _identityService.setRunAs(_identityService.getSystemUserIdentity(), _runAsToken);
             try
             {
-                _servlet.init(config);
+                getWrappedServlet().init(config);
             }
             finally
             {
@@ -1360,7 +1392,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             Object oldRunAs = _identityService.setRunAs(_identityService.getSystemUserIdentity(), _runAsToken);
             try
             {
-                _servlet.service(req, res);
+                getWrappedServlet().service(req, res);
             }
             finally
             {
@@ -1374,7 +1406,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             Object oldRunAs = _identityService.setRunAs(_identityService.getSystemUserIdentity(), _runAsToken);
             try
             {
-                _servlet.destroy();
+                getWrappedServlet().destroy();
             }
             finally
             {
@@ -1399,7 +1431,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 try
                 {
                     baseRequest.setAsyncSupported(false, this.toString());
-                    _servlet.service(req, res);
+                    getWrappedServlet().service(req, res);
                 }
                 finally
                 {
@@ -1408,7 +1440,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             }
             else
             {
-                _servlet.service(req, res);
+                getWrappedServlet().service(req, res);
             }
         }
     }
