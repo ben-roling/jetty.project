@@ -36,12 +36,14 @@ import org.eclipse.jetty.util.component.ContainerLifeCycle;
 import org.eclipse.jetty.util.component.LifeCycle;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
+import org.eclipse.jetty.webapp.Configuration;
 import org.eclipse.jetty.webapp.WebAppContext;
 
 public class MetricsHandler extends ContainerLifeCycle
     implements ServletHolder.WrapperFunction,
     FilterHolder.WrapperFunction,
     ListenerHolder.WrapperFunction,
+    Configuration.WrapperFunction,
     HttpChannel.Listener,
     LifeCycle.Listener
 {
@@ -127,6 +129,31 @@ public class MetricsHandler extends ContainerLifeCycle
     {
         String uniqId = UUID.randomUUID().toString();
         request.setAttribute(ATTR_REQUEST_ID, uniqId);
+    }
+
+    @Override
+    public Configuration wrapConfiguration(Configuration configuration)
+    {
+        LOG.info("wrapConfiguration({})", configuration);
+        if (!(metricsListener instanceof WebAppMetricsListener))
+        {
+            return configuration;
+        }
+
+        Configuration unwrapped = configuration;
+        while (unwrapped instanceof Configuration.Wrapper)
+        {
+            // Are we already wrapped somewhere along the line?
+            if (unwrapped instanceof MetricsConfigurationWrapper)
+            {
+                // If so, we are done. no need to wrap again.
+                return configuration;
+            }
+            // Unwrap
+            unwrapped = ((Configuration.Wrapper)unwrapped).getWrapped();
+        }
+
+        return new MetricsConfigurationWrapper(configuration, (WebAppMetricsListener)metricsListener);
     }
 
     @Override

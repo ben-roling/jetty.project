@@ -18,7 +18,6 @@
 
 package org.eclipse.jetty.metrics;
 
-import java.time.Duration;
 import javax.servlet.ServletContext;
 
 import org.eclipse.jetty.webapp.Configuration;
@@ -32,14 +31,22 @@ public interface WebAppMetricsListener extends ServletMetricsListener
     }
 
     /**
-     * Timing for a specific {@link Configuration} being applied to the {@link WebAppContext}
+     * Event that a specific {@link Configuration} being applied to the {@link WebAppContext}
      *
      * @param context the specific context that was the configuration was applied to
      * @param configuration the configuration that was applied
      * @param configurationStep the configuration step
-     * @param duration the duration for this configuration step
      */
-    void onWebAppConfigureTiming(WebAppContext context, Configuration configuration, ConfigurationStep configurationStep, Duration duration);
+    void onWebAppConfigureStart(WebAppContext context, Configuration configuration, ConfigurationStep configurationStep);
+
+    /**
+     * Event that a specific {@link Configuration} being applied to the {@link WebAppContext} has completed
+     *
+     * @param context the specific context that was the configuration was applied to
+     * @param configuration the configuration that was applied
+     * @param configurationStep the configuration step
+     */
+    void onWebAppConfigureFinished(WebAppContext context, Configuration configuration, ConfigurationStep configurationStep);
 
     /**
      * Event that the WebAppContext has started to be initialized

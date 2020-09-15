@@ -96,6 +96,62 @@ public interface Configuration
      */
     void cloneConfigure(WebAppContext template, WebAppContext context) throws Exception;
 
+    interface WrapperFunction
+    {
+        Configuration wrapConfiguration(Configuration configuration);
+    }
+
+    class Wrapper implements Configuration
+    {
+        private Configuration delegate;
+
+        public Wrapper(Configuration delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        public Configuration getWrapped()
+        {
+            return delegate;
+        }
+
+        @Override
+        public void preConfigure(WebAppContext context) throws Exception
+        {
+            delegate.preConfigure(context);
+        }
+
+        @Override
+        public void configure(WebAppContext context) throws Exception
+        {
+            delegate.configure(context);
+        }
+
+        @Override
+        public void postConfigure(WebAppContext context) throws Exception
+        {
+            delegate.postConfigure(context);
+        }
+
+        @Override
+        public void deconfigure(WebAppContext context) throws Exception
+        {
+            delegate.deconfigure(context);
+        }
+
+        @Override
+        public void destroy(WebAppContext context) throws Exception
+        {
+            delegate.destroy(context);
+        }
+
+        @Override
+        public void cloneConfigure(WebAppContext template, WebAppContext context) throws Exception
+        {
+            delegate.cloneConfigure(template, context);
+        }
+    }
+
     class ClassList extends ArrayList<String>
     {
 

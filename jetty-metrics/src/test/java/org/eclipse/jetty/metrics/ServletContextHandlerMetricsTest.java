@@ -88,7 +88,7 @@ public class ServletContextHandlerMetricsTest
         expectedEvents.add("onServletEnter()");
         expectedEvents.add("onServletExit()");
 
-        assertThat("Metrics Events Count", captureListener.events.size(), is(expectedEvents.size()));
+        assertThat("Metrics Events Count", captureListener.getEvents().size(), is(expectedEvents.size()));
     }
 
     @Test
@@ -122,6 +122,6 @@ public class ServletContextHandlerMetricsTest
         expectedEvents.add("onServletExit()");
         expectedEvents.add("onFilterExit()");
 
-        assertThat("Metrics Events Count", captureListener.events.size(), is(expectedEvents.size()));
+        assertThat("Metrics Events Count", captureListener.getEvents().size(), is(expectedEvents.size()));
     }
 }

@@ -31,9 +31,9 @@ import org.eclipse.jetty.util.log.Logger;
 public class ServletMetricsCaptureListener implements ServletMetricsListener
 {
     private static final Logger LOG = Log.getLogger(ServletMetricsCaptureListener.class);
-    public LinkedBlockingQueue<String> events = new LinkedBlockingQueue<>();
+    private LinkedBlockingQueue<String> events = new LinkedBlockingQueue<>();
 
-    private void addEvent(String format, Object... args)
+    protected void addEvent(String format, Object... args)
     {
         String eventText = String.format(format, args);
         events.offer(eventText);
@@ -44,6 +44,11 @@ public class ServletMetricsCaptureListener implements ServletMetricsListener
             cause = (Throwable)lastArg;
         }
         LOG.info("[EVENT] {}", eventText, cause);
+    }
+
+    public LinkedBlockingQueue<String> getEvents()
+    {
+        return events;
     }
 
     @Override
