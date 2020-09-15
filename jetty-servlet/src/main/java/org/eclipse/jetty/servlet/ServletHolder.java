@@ -419,9 +419,13 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
     private Servlet wrap(final Servlet servlet)
     {
         Servlet ret = servlet;
-        for (ServletHolder.WrapperFunction wrapperFunction : getServletHandler().getServletContextHandler().getBeans(ServletHolder.WrapperFunction.class))
+        ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
+        if (contextHandler != null)
         {
-            ret = wrapperFunction.wrapServlet(ret);
+            for (ServletHolder.WrapperFunction wrapperFunction : getServletHandler().getServletContextHandler().getBeans(ServletHolder.WrapperFunction.class))
+            {
+                ret = wrapperFunction.wrapServlet(ret);
+            }
         }
         return ret;
     }
