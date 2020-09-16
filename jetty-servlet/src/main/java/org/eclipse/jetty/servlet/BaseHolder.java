@@ -19,6 +19,7 @@
 package org.eclipse.jetty.servlet;
 
 import java.io.IOException;
+import java.util.function.BiFunction;
 import javax.servlet.ServletContext;
 import javax.servlet.UnavailableException;
 
@@ -185,6 +186,32 @@ public abstract class BaseHolder<T> extends AbstractLifeCycle implements Dumpabl
         return _instance != null;
     }
 
+    protected <C, W> C wrap(final C component, final Class<W> wrapperFunctionType, final BiFunction<W, C, C> function)
+    {
+        C ret = component;
+        ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
+        if (contextHandler != null)
+        {
+            for (W wrapperFunction : contextHandler.getBeans(wrapperFunctionType))
+            {
+                ret = function.apply(wrapperFunction, ret);
+            }
+        }
+        return ret;
+    }
+
+    protected <C> C unwrap(final C component)
+    {
+        C ret = component;
+
+        while (ret instanceof Wrapped)
+        {
+            // noinspection unchecked,rawtypes
+            ret = (C)((Wrapped)ret).getWrapped();
+        }
+        return ret;
+    }
+
     @Override
     public void dump(Appendable out, String indent) throws IOException
     {
@@ -195,5 +222,10 @@ public abstract class BaseHolder<T> extends AbstractLifeCycle implements Dumpabl
     public String dump()
     {
         return Dumpable.dump(this);
+    }
+
+    interface Wrapped<C>
+    {
+        C getWrapped();
     }
 }

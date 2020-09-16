@@ -102,7 +102,7 @@ public class ListenerHolder extends BaseHolder<EventListener>
                     throw ex;
                 }
             }
-            _listener = wrap(_listener);
+            _listener = wrap(_listener, WrapperFunction.class, WrapperFunction::wrapEventListener);
             contextHandler.addEventListener(_listener);
         }
     }
@@ -127,30 +127,6 @@ public class ListenerHolder extends BaseHolder<EventListener>
         }
     }
 
-    private EventListener wrap(final EventListener listener)
-    {
-        EventListener ret = listener;
-        ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
-        if (contextHandler != null)
-        {
-            for (ListenerHolder.WrapperFunction wrapperFunction : contextHandler.getBeans(ListenerHolder.WrapperFunction.class))
-            {
-                ret = wrapperFunction.wrapEventListener(ret);
-            }
-        }
-        return ret;
-    }
-
-    private static EventListener unwrap(EventListener listener)
-    {
-        EventListener unwrapped = listener;
-        while (ListenerHolder.WrapperEventListener.class.isAssignableFrom(unwrapped.getClass()))
-        {
-            unwrapped = ((ListenerHolder.WrapperEventListener)unwrapped).getWrappedListener();
-        }
-        return unwrapped;
-    }
-
     @Override
     public String toString()
     {
@@ -158,28 +134,36 @@ public class ListenerHolder extends BaseHolder<EventListener>
     }
 
     /**
-     * Experimental Wrapper mechanism for Servlet Listeners.
+     * Experimental Wrapper mechanism for Servlet EventListeners.
      * <p>
-     * Beans in ServletContextHandler or WebAppContext that implement this interface
-     * will be called to optionally wrap any newly created ServletListeners before
+     * Beans in {@code ServletContextHandler} or {@code WebAppContext} that implement this interface
+     * will be called to optionally wrap any newly created Servlet EventListeners before
      * they are used for the first time.
      * </p>
      */
     public interface WrapperFunction
     {
+        /**
+         * Optionally wrap the Servlet EventListener.
+         *
+         * @param listener the Servlet EventListener being passed in.
+         * @return the Servlet EventListener (extend from {@link ListenerHolder.Wrapper}
+         * if you do wrap the Servlet EventListener)
+         */
         EventListener wrapEventListener(EventListener listener);
     }
 
-    public static class WrapperEventListener implements EventListener
+    public static class Wrapper implements EventListener, Wrapped<EventListener>
     {
         final EventListener _listener;
 
-        public WrapperEventListener(EventListener listener)
+        public Wrapper(EventListener listener)
         {
             _listener = listener;
         }
 
-        public EventListener getWrappedListener()
+        @Override
+        public EventListener getWrapped()
         {
             return _listener;
         }

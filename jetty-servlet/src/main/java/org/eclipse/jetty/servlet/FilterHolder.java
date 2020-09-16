@@ -132,7 +132,7 @@ public class FilterHolder extends Holder<Filter>
                     throw ex;
                 }
             }
-            _filter = wrap(_filter);
+            _filter = wrap(_filter, WrapperFunction.class, WrapperFunction::wrapFilter);
             _config = new Config();
             if (LOG.isDebugEnabled())
                 LOG.debug("Filter.init {}", _filter);
@@ -166,36 +166,14 @@ public class FilterHolder extends Holder<Filter>
             return;
 
         Filter filter = (Filter)o;
-        // destroy the wrapped filter, in case there is special behaviour
-        filter.destroy();
+
         // need to use the unwrapped filter because lifecycle callbacks such as
         // postconstruct and predestroy are based off the classname and the wrapper
         // classes are unknown outside the ServletHolder
         getServletHandler().destroyFilter(unwrap(filter));
-    }
 
-    private Filter wrap(final Filter filter)
-    {
-        Filter ret = filter;
-        ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
-        if (contextHandler != null)
-        {
-            for (FilterHolder.WrapperFunction wrapperFunction : contextHandler.getBeans(FilterHolder.WrapperFunction.class))
-            {
-                ret = wrapperFunction.wrapFilter(ret);
-            }
-        }
-        return ret;
-    }
-
-    private Filter unwrap(Filter filter)
-    {
-        Filter unwrapped = filter;
-        while (FilterHolder.WrapperFilter.class.isAssignableFrom(unwrapped.getClass()))
-        {
-            unwrapped = ((FilterHolder.WrapperFilter)unwrapped).getWrappedFilter();
-        }
-        return unwrapped;
+        // destroy the wrapped filter, in case there is special behaviour
+        filter.destroy();
     }
 
     public synchronized void setFilter(Filter filter)
@@ -314,23 +292,35 @@ public class FilterHolder extends Holder<Filter>
     /**
      * Experimental Wrapper mechanism for Filter objects.
      * <p>
-     * Beans in ServletContextHandler or WebAppContext that implement this interface
+     * Beans in {@code ServletContextHandler} or {@code WebAppContext} that implement this interface
      * will be called to optionally wrap any newly created Filters
      * (before their {@link Filter#init(FilterConfig)} method is called)
      * </p>
      */
     public interface WrapperFunction
     {
+        /**
+         * Optionally wrap the Filter.
+         *
+         * @param filter the Filter being passed in.
+         * @return the Filter (extend from {@link FilterHolder.Wrapper} if you do wrap the Filter)
+         */
         Filter wrapFilter(Filter filter);
     }
 
-    public static class WrapperFilter implements Filter
+    public static class Wrapper implements Filter, Wrapped<Filter>
     {
         private final Filter _filter;
 
-        public WrapperFilter(Filter filter)
+        public Wrapper(Filter filter)
         {
             _filter = Objects.requireNonNull(filter, "Filter cannot be null");
+        }
+
+        @Override
+        public Filter getWrapped()
+        {
+            return _filter;
         }
 
         @Override
@@ -349,11 +339,6 @@ public class FilterHolder extends Holder<Filter>
         public void destroy()
         {
             _filter.destroy();
-        }
-
-        public Filter getWrappedFilter()
-        {
-            return _filter;
         }
 
         @Override

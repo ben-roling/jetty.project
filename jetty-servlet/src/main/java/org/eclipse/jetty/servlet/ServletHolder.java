@@ -416,30 +416,6 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
         }
     }
 
-    private Servlet wrap(final Servlet servlet)
-    {
-        Servlet ret = servlet;
-        ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
-        if (contextHandler != null)
-        {
-            for (ServletHolder.WrapperFunction wrapperFunction : getServletHandler().getServletContextHandler().getBeans(ServletHolder.WrapperFunction.class))
-            {
-                ret = wrapperFunction.wrapServlet(ret);
-            }
-        }
-        return ret;
-    }
-
-    private Servlet unwrap(final Servlet servlet)
-    {
-        Servlet unwrapped = servlet;
-        while (unwrapped instanceof WrapperServlet)
-        {
-            unwrapped = ((WrapperServlet)unwrapped).getWrappedServlet();
-        }
-        return unwrapped;
-    }
-
     @Override
     public void doStop()
         throws Exception
@@ -465,16 +441,17 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
 
     @Override
     public void destroyInstance(Object o)
-        throws Exception
     {
         if (o == null)
             return;
 
         Servlet servlet = ((Servlet)o);
+
         // need to use the unwrapped servlet because lifecycle callbacks such as
         // postconstruct and predestroy are based off the classname and the wrapper
         // classes are unknown outside the ServletHolder
         getServletHandler().destroyServlet(unwrap(servlet));
+
         // destroy the wrapped servlet, in case there is special behaviour
         servlet.destroy();
     }
@@ -588,7 +565,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 _servlet = newInstance();
             if (_config == null)
                 _config = new Config();
-          
+
             //check run-as rolename and convert to token from IdentityService
             if (_runAsRole == null)
             {
@@ -601,12 +578,12 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 if (_identityService != null)
                 {
                     _runAsToken = _identityService.newRunAsToken(_runAsRole);
-                    _servlet = new RunAsServlet(_servlet, _identityService, _runAsToken);
+                    _servlet = new RunAs(_servlet, _identityService, _runAsToken);
                 }
             }
 
             if (!isAsyncSupported())
-                _servlet = new NotAsyncServlet(_servlet);
+                _servlet = new NotAsync(_servlet);
 
             // Handle configuring servlets that implement org.apache.jasper.servlet.JspServlet
             if (isJspServlet())
@@ -618,7 +595,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 detectJspContainer();
 
             initMultiPart();
-            _servlet = wrap(_servlet);
+            _servlet = wrap(_servlet, WrapperFunction.class, WrapperFunction::wrapServlet);
 
             if (LOG.isDebugEnabled())
                 LOG.debug("Servlet.init {} for {}", _servlet, getName());
@@ -1189,7 +1166,6 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             if (ctx != null)
                 return ctx.createServlet(getHeldClass());
             return getHeldClass().getDeclaredConstructor().newInstance();
-
         }
         catch (ServletException ex)
         {
@@ -1270,7 +1246,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 synchronized (ServletHolder.this)
                 {
                     ServletHolder.this._servlet = this._servlet;
-                    _servlet.service(req,res);
+                    _servlet.service(req, res);
                 }
             }
         }
@@ -1300,23 +1276,35 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
     /**
      * Experimental Wrapper mechanism for Servlet objects.
      * <p>
-     * Beans in ServletContextHandler or WebAppContext that implement this interface
+     * Beans in {@code ServletContextHandler} or {@code WebAppContext} that implement this interface
      * will be called to optionally wrap any newly created Servlets
      * (before their {@link Servlet#init(ServletConfig)} method is called)
      * </p>
      */
     public interface WrapperFunction
     {
+        /**
+         * Optionally wrap the Servlet.
+         *
+         * @param servlet the servlet being passed in.
+         * @return the servlet (extend from {@link ServletHolder.Wrapper} if you do wrap the Servlet)
+         */
         Servlet wrapServlet(Servlet servlet);
     }
 
-    public static class WrapperServlet implements Servlet
+    public static class Wrapper implements Servlet, Wrapped<Servlet>
     {
         private final Servlet _servlet;
 
-        public WrapperServlet(Servlet servlet)
+        public Wrapper(Servlet servlet)
         {
             _servlet = Objects.requireNonNull(servlet, "Servlet cannot be null");
+        }
+
+        @Override
+        public Servlet getWrapped()
+        {
+            return _servlet;
         }
 
         @Override
@@ -1348,14 +1336,6 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
         {
             _servlet.destroy();
         }
-        
-        /**
-         * @return the original servlet
-         */
-        public Servlet getWrappedServlet()
-        {
-            return _servlet;
-        }
 
         @Override
         public String toString()
@@ -1364,12 +1344,12 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
         }
     }
 
-    private static class RunAsServlet extends WrapperServlet
+    private static class RunAs extends Wrapper
     {
         final IdentityService _identityService;
         final RunAsToken _runAsToken;
 
-        public RunAsServlet(Servlet servlet, IdentityService identityService, RunAsToken runAsToken)
+        public RunAs(Servlet servlet, IdentityService identityService, RunAsToken runAsToken)
         {
             super(servlet);
             _identityService = identityService;
@@ -1382,7 +1362,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             Object oldRunAs = _identityService.setRunAs(_identityService.getSystemUserIdentity(), _runAsToken);
             try
             {
-                getWrappedServlet().init(config);
+                getWrapped().init(config);
             }
             finally
             {
@@ -1396,7 +1376,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             Object oldRunAs = _identityService.setRunAs(_identityService.getSystemUserIdentity(), _runAsToken);
             try
             {
-                getWrappedServlet().service(req, res);
+                getWrapped().service(req, res);
             }
             finally
             {
@@ -1410,7 +1390,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             Object oldRunAs = _identityService.setRunAs(_identityService.getSystemUserIdentity(), _runAsToken);
             try
             {
-                getWrappedServlet().destroy();
+                getWrapped().destroy();
             }
             finally
             {
@@ -1419,9 +1399,9 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
         }
     }
 
-    private static class NotAsyncServlet extends WrapperServlet
+    private static class NotAsync extends Wrapper
     {
-        public NotAsyncServlet(Servlet servlet)
+        public NotAsync(Servlet servlet)
         {
             super(servlet);
         }
@@ -1435,7 +1415,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 try
                 {
                     baseRequest.setAsyncSupported(false, this.toString());
-                    getWrappedServlet().service(req, res);
+                    getWrapped().service(req, res);
                 }
                 finally
                 {
@@ -1444,7 +1424,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
             }
             else
             {
-                getWrappedServlet().service(req, res);
+                getWrapped().service(req, res);
             }
         }
     }
