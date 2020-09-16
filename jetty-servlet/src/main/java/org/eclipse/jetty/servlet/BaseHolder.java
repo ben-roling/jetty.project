@@ -218,11 +218,24 @@ public abstract class BaseHolder<T> extends AbstractLifeCycle implements Dumpabl
         return Dumpable.dump(this);
     }
 
+    /**
+     * A functional interface to wrap the component held by a Holder
+     * @see #wrap(Object)
+     * @see #unwrap(Object)
+     * @param <T> The component type to wrap
+     */
     public interface BaseWrapFunction<T>
     {
+        /**
+         * @param component the instance to wrap.
+         * @return the wrapped component (extend from {@link Wrapped} or the component itself)
+         */
         T wrap(T component);
     }
 
+    /** A wrapped component
+     * @param <T> The component type to be wrapped.
+     */
     interface Wrapped<T>
     {
         T getWrapped();
