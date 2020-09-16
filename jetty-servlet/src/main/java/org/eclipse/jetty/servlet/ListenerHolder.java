@@ -102,7 +102,7 @@ public class ListenerHolder extends BaseHolder<EventListener>
                     throw ex;
                 }
             }
-            _listener = wrap(_listener, WrapperFunction.class, WrapperFunction::wrapEventListener);
+            _listener = wrap(_listener, WrapperFunction.class);
             contextHandler.addEventListener(_listener);
         }
     }
@@ -141,17 +141,8 @@ public class ListenerHolder extends BaseHolder<EventListener>
      * they are used for the first time.
      * </p>
      */
-    public interface WrapperFunction
-    {
-        /**
-         * Optionally wrap the Servlet EventListener.
-         *
-         * @param listener the Servlet EventListener being passed in.
-         * @return the Servlet EventListener (extend from {@link ListenerHolder.Wrapper}
-         * if you do wrap the Servlet EventListener)
-         */
-        EventListener wrapEventListener(EventListener listener);
-    }
+    public interface WrapperFunction extends BaseWrapFunction<EventListener>
+    {}
 
     public static class Wrapper implements EventListener, Wrapped<EventListener>
     {

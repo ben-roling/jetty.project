@@ -595,7 +595,7 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
                 detectJspContainer();
 
             initMultiPart();
-            _servlet = wrap(_servlet, WrapperFunction.class, WrapperFunction::wrapServlet);
+            _servlet = wrap(_servlet, WrapperFunction.class);
 
             if (LOG.isDebugEnabled())
                 LOG.debug("Servlet.init {} for {}", _servlet, getName());
@@ -1281,16 +1281,8 @@ public class ServletHolder extends Holder<Servlet> implements UserIdentity.Scope
      * (before their {@link Servlet#init(ServletConfig)} method is called)
      * </p>
      */
-    public interface WrapperFunction
-    {
-        /**
-         * Optionally wrap the Servlet.
-         *
-         * @param servlet the servlet being passed in.
-         * @return the servlet (extend from {@link ServletHolder.Wrapper} if you do wrap the Servlet)
-         */
-        Servlet wrapServlet(Servlet servlet);
-    }
+    public interface WrapperFunction extends BaseWrapFunction<Servlet>
+    {}
 
     public static class Wrapper implements Servlet, Wrapped<Servlet>
     {

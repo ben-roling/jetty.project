@@ -19,7 +19,6 @@
 package org.eclipse.jetty.servlet;
 
 import java.io.IOException;
-import java.util.function.BiFunction;
 import javax.servlet.ServletContext;
 import javax.servlet.UnavailableException;
 
@@ -186,30 +185,25 @@ public abstract class BaseHolder<T> extends AbstractLifeCycle implements Dumpabl
         return _instance != null;
     }
 
-    protected <C, W> C wrap(final C component, final Class<W> wrapperFunctionType, final BiFunction<W, C, C> function)
+    protected T wrap(T component, Class<? extends BaseWrapFunction<T>> wrapperType)
     {
-        C ret = component;
         ServletContextHandler contextHandler = getServletHandler().getServletContextHandler();
         if (contextHandler != null)
         {
-            for (W wrapperFunction : contextHandler.getBeans(wrapperFunctionType))
-            {
-                ret = function.apply(wrapperFunction, ret);
-            }
+            for (BaseWrapFunction<T> wrapperFunction : contextHandler.getBeans(wrapperType))
+                component = wrapperFunction.wrap(component);
         }
-        return ret;
+        return component;
     }
 
-    protected <C> C unwrap(final C component)
+    protected T unwrap(T component)
     {
-        C ret = component;
-
-        while (ret instanceof Wrapped)
+        while (component instanceof Wrapped)
         {
             // noinspection unchecked,rawtypes
-            ret = (C)((Wrapped)ret).getWrapped();
+            component = (T)((Wrapped<T>)component).getWrapped();
         }
-        return ret;
+        return component;
     }
 
     @Override
@@ -224,8 +218,13 @@ public abstract class BaseHolder<T> extends AbstractLifeCycle implements Dumpabl
         return Dumpable.dump(this);
     }
 
-    interface Wrapped<C>
+    public interface BaseWrapFunction<T>
     {
-        C getWrapped();
+        T wrap(T component);
+    }
+
+    interface Wrapped<T>
+    {
+        T getWrapped();
     }
 }
