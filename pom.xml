@@ -1327,8 +1327,7 @@
     <profile>
       <id>ci</id>
       <properties>
-        <settingsPath>${env.GLOBAL_MVN_SETTINGS}</settingsPath>
-        <surefire.rerunFailingTestsCount>3</surefire.rerunFailingTestsCount>
+        <surefire.rerunFailingTestsCount>0</surefire.rerunFailingTestsCount>
       </properties>
       <modules>
         <module>aggregates/jetty-all</module>
