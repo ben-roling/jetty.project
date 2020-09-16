@@ -18,6 +18,7 @@
 
 package org.eclipse.jetty.webapp;
 
+import java.io.InputStream;
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.net.URI;
@@ -29,6 +30,7 @@ import java.util.Collections;
 import java.util.List;
 
 import org.eclipse.jetty.toolchain.test.MavenTestingUtils;
+import org.eclipse.jetty.util.IO;
 import org.eclipse.jetty.util.resource.PathResource;
 import org.eclipse.jetty.util.resource.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +38,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.eclipse.jetty.toolchain.test.ExtraMatchers.ordered;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -334,5 +338,31 @@ public class WebAppClassLoaderTest
         expected.add(targetTestClasses);
 
         assertThat("Resources Found (Parent Loader Priority == true) (with systemClasses filtering)", resources, ordered(expected));
+    }
+
+    @Test
+    public void testClashingResource() throws Exception
+    {
+        // The existence of a URLStreamHandler changes the behavior
+        assumeTrue(URLStreamHandlerUtil.getFactory() == null, "URLStreamHandler changes behavior, skip test");
+
+        // This cannot test order of resources from the URLClassLoader, as there is no
+        // guarantee of order from any Java ClassLoader.
+        // It can only test if both resources are being returned (in any order).
+
+        List<URL> resources = Collections.list(_loader.getResources("org/acme/clashing.txt"));
+        assertThat("Resource clashing count", resources.size(), is(2));
+
+        for (URL url : resources)
+        {
+            try (InputStream data = url.openStream())
+            {
+                assertThat("correct contents of " + url, IO.toString(data),
+                    anyOf(
+                        is("alpha"),
+                        is("omega")
+                    ));
+            }
+        }
     }
 }
