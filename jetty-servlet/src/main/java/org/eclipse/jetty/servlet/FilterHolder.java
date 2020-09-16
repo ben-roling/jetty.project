@@ -132,7 +132,7 @@ public class FilterHolder extends Holder<Filter>
                     throw ex;
                 }
             }
-            _filter = wrap(_filter, WrapFunction.class);
+            _filter = wrap(_filter, WrapFunction.class, WrapFunction::wrapFilter);
             _config = new Config();
             if (LOG.isDebugEnabled())
                 LOG.debug("Filter.init {}", _filter);
@@ -297,8 +297,16 @@ public class FilterHolder extends Holder<Filter>
      * (before their {@link Filter#init(FilterConfig)} method is called)
      * </p>
      */
-    public interface WrapFunction extends BaseWrapFunction<Filter>
-    {}
+    public interface WrapFunction
+    {
+        /**
+         * Optionally wrap the Filter.
+         *
+         * @param filter the Filter being passed in.
+         * @return the Filter (extend from {@link FilterHolder.Wrapper} if you do wrap the Filter)
+         */
+        Filter wrapFilter(Filter filter);
+    }
 
     public static class Wrapper implements Filter, Wrapped<Filter>
     {
